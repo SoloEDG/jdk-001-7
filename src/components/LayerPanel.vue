@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { MAX_LAYERS } from '../core/constants'
 import { useEditorStore } from '../editor/useEditorStore'
+import ImportImageDialog from './ImportImageDialog.vue'
 
 const store = useEditorStore()
+const importOpen = ref(false)
 
 const layers = computed(() => store.activeFrame?.layers ?? [])
 const canAdd = computed(() => layers.value.length < MAX_LAYERS)
@@ -41,8 +43,19 @@ const canAdd = computed(() => layers.value.length < MAX_LAYERS)
         </button>
       </li>
     </ul>
-    <button type="button" class="action" :disabled="!canAdd" @click="store.addLayer">
+    <button type="button" class="action" :disabled="!canAdd || store.isPlaying" @click="store.addLayer">
       新建图层
     </button>
+    <button
+      type="button"
+      class="action"
+      :disabled="!canAdd || store.isPlaying"
+      :title="canAdd ? '把图片量化后写入新图层' : '图层已达上限'"
+      @click="importOpen = true"
+    >
+      导入图片到新图层
+    </button>
+
+    <ImportImageDialog :open="importOpen" @close="importOpen = false" />
   </section>
 </template>

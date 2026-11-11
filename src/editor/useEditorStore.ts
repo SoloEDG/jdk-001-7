@@ -13,6 +13,8 @@ import {
   saveProjects,
   upsertProject,
 } from '../core/storage'
+import { rasterizeImageFile, type ImageImportResult } from '../core/imageImport'
+import { canAddLayer } from '../core/layerFactory'
 import type { CanvasSize, PixelProject, ToolType } from '../core/types'
 import { createAnimationPlayer } from './animationPlayer'
 import {
@@ -20,12 +22,14 @@ import {
   addLayerToActiveFrame,
   deleteFrameAt,
   deleteLayerAt,
+  importImageLayer,
   toggleLayerVisibility,
   withActiveLayer,
   withCanvasSize,
   withFrameLayers,
 } from './projectCommands'
 import { applyToolAt, cancelLineTool, type LinePending } from './toolController'
+import type { QuantizeOptions } from '../core/colorQuantize'
 
 const projects = ref<PixelProject[]>(ensureDefaultProject(loadProjects()))
 const prefs = reactive(loadPreferences())
@@ -165,6 +169,40 @@ function addLayer() {
   mutateProject((p) => addLayerToActiveFrame(p) ?? p)
 }
 
+/**
+ * 导入图片：解码后拉伸到当前画布尺寸，按选项量化颜色，
+ * 结果只写入当前帧的新图层，其他图层和帧不受影响。
+ */
+async function importImage(file: File, options: QuantizeOptions): Promise<ImageImportResult> {
+  const project = activeProject.value
+  const frame = activeFrame.value
+  if (!project || !frame) return { ok: false, reason: 'no-project' }
+  if (!canAddLayer(frame.layers)) return { ok: false, reason: 'layer-limit' }
+
+  try {
+    const raster = await rasterizeImageFile(file, project.canvasSize, options)
+    let applied = false
+    mutateProject((p) => {
+      const updated = importImageLayer(
+        p,
+        raster.pixels,
+        `导入图层 ${p.frames[p.activeFrameIndex]!.layers.length + 1}`,
+      )
+      if (updated) {
+        applied = true
+        return updated
+      }
+      return p
+    })
+    return applied ? { ok: true } : { ok: false, reason: 'layer-limit' }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'invalid-image') {
+      return { ok: false, reason: 'invalid-image' }
+    }
+    return { ok: false, reason: 'import-failed' }
+  }
+}
+
 function setActiveFrame(index: number) {
   previewFrameIndex.value = null
   mutateProject((p) => ({ ...p, activeFrameIndex: index }))
@@ -277,6 +315,7 @@ function buildEditorStore() {
     toggleLayerVisible,
     deleteLayer,
     addLayer,
+    importImage,
     setActiveFrame,
     addFrame,
     deleteFrame,

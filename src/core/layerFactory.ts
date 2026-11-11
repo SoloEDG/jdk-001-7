@@ -1,16 +1,16 @@
 import { MAX_LAYERS } from './constants'
 import { createEmptyGrid } from './pixelGrid'
-import type { Layer } from './types'
+import type { Layer, Pixel } from './types'
 
 let layerCounter = 0
 
-export function createLayer(size: number, name?: string): Layer {
+export function createLayer(size: number, name?: string, pixels?: Pixel[]): Layer {
   layerCounter += 1
   return {
     id: `layer-${Date.now()}-${layerCounter}`,
     name: name ?? `图层 ${layerCounter}`,
     visible: true,
-    pixels: createEmptyGrid(size),
+    pixels: pixels ?? createEmptyGrid(size),
   }
 }
 

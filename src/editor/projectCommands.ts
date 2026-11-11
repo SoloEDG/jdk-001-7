@@ -1,7 +1,7 @@
 import { canAddFrame, createFrame } from '../core/frameFactory'
 import { canAddLayer, createLayer } from '../core/layerFactory'
 import { resizeGrid } from '../core/pixelGrid'
-import type { CanvasSize, PixelProject } from '../core/types'
+import type { CanvasSize, Pixel, PixelProject } from '../core/types'
 
 export function withCanvasSize(project: PixelProject, size: CanvasSize): PixelProject {
   return {
@@ -34,6 +34,26 @@ export function addLayerToActiveFrame(project: PixelProject): PixelProject | nul
   const frame = project.frames[project.activeFrameIndex]
   if (!frame || !canAddLayer(frame.layers)) return null
   const layers = [...frame.layers, createLayer(project.canvasSize)]
+  return {
+    ...withFrameLayers(project, project.activeFrameIndex, layers),
+    activeLayerIndex: layers.length - 1,
+  }
+}
+
+/**
+ * 把导入图片生成的像素写入当前帧的一个新图层。
+ * 只影响当前帧的图层列表，其他帧和已有图层保持不变。
+ */
+export function importImageLayer(
+  project: PixelProject,
+  pixels: Pixel[],
+  layerName: string,
+): PixelProject | null {
+  const frame = project.frames[project.activeFrameIndex]
+  if (!frame || !canAddLayer(frame.layers)) return null
+  if (pixels.length !== project.canvasSize * project.canvasSize) return null
+  const layer = createLayer(project.canvasSize, layerName, pixels)
+  const layers = [...frame.layers, layer]
   return {
     ...withFrameLayers(project, project.activeFrameIndex, layers),
     activeLayerIndex: layers.length - 1,
